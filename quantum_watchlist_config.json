@@ -1,0 +1,24 @@
+{
+  "tickers": [
+    {
+      "symbol": "IONQ",
+      "name": "IonQ"
+    },
+    {
+      "symbol": "RGTI",
+      "name": "Rigetti Computing"
+    },
+    {
+      "symbol": "QBTS",
+      "name": "D-Wave Quantum"
+    },
+    {
+      "symbol": "QUBT",
+      "name": "Quantum Computing Inc"
+    },
+    {
+      "symbol": "ARQQ",
+      "name": "Arqit Quantum"
+    }
+  ]
+}

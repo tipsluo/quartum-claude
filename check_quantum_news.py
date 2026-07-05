@@ -162,25 +162,11 @@ def main():
         if not significant:
             print("\nClaude reviewed the headlines and found nothing significant right now.")
         else:
-            # Group items by ticker; keep watchlist order for the groups,
-            # and within each group show high urgency first.
+            # Sort so high urgency shows first
             order = {"high": 0, "medium": 1, "low": 2}
-            by_ticker = {}
+            significant.sort(key=lambda x: order.get(x.get("urgency", "low"), 2))
             for item in significant:
-                by_ticker.setdefault(item.get("ticker", "?"), []).append(item)
-
-            watchlist_order = [t["symbol"] for t in tickers]
-            group_symbols = sorted(
-                by_ticker.keys(),
-                key=lambda s: watchlist_order.index(s) if s in watchlist_order else len(watchlist_order),
-            )
-
-            name_by_symbol = {t["symbol"]: t.get("name", t["symbol"]) for t in tickers}
-            for symbol in group_symbols:
-                items = sorted(by_ticker[symbol], key=lambda x: order.get(x.get("urgency", "low"), 2))
-                print(f"\n=== {symbol} ({name_by_symbol.get(symbol, symbol)}) — {len(items)} item(s) ===")
-                for item in items:
-                    notify(item)
+                notify(item)
 
     config["last_checked"] = datetime.now().isoformat(timespec="seconds")
     save_config(config)
