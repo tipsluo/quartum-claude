@@ -88,12 +88,13 @@ Your job:
 2. Keep only headlines that reflect something material: earnings, contracts, funding, partnerships, regulatory news, executive changes, major analyst actions, or technical breakthroughs.
 3. For each one you keep, write a one-sentence plain-English summary of why it matters, in your own words.
 4. Assign urgency: "high" (likely to move the stock meaningfully or requires attention soon), "medium", or "low".
+5. Score sentiment from the shareholder's point of view on an integer scale from -5 (very bad news, e.g. fraud, missed earnings, downgrade) to +5 (very good news, e.g. major contract win, beat-and-raise, breakthrough). Use 0 for genuinely neutral/mixed news.
 
 Raw headlines (JSON):
 {json.dumps(raw_news, indent=2)}
 
 Respond with ONLY a JSON array, no markdown fences, no preamble, in this exact format:
-[{{"ticker": "IONQ", "headline": "...", "why_it_matters": "...", "urgency": "high"}}]
+[{{"ticker": "IONQ", "headline": "...", "why_it_matters": "...", "urgency": "high", "sentiment": 3}}]
 If nothing is significant, return an empty array []."""
 
     response = client.messages.create(
@@ -112,11 +113,33 @@ If nothing is significant, return an empty array []."""
         return []
 
 
+def sentiment_label(score):
+    """Turn the -5..+5 sentiment score into a short readable tag."""
+    try:
+        score = int(score)
+    except (TypeError, ValueError):
+        return ""
+    if score >= 4:
+        word = "very positive"
+    elif score >= 1:
+        word = "positive"
+    elif score == 0:
+        word = "neutral"
+    elif score >= -3:
+        word = "negative"
+    else:
+        word = "very negative"
+    return f"sentiment {score:+d} ({word})"
+
+
 def notify(item):
     """Replace this with an email/SMS/Slack call if you want real alerts."""
     urgency_flag = {"high": "[HIGH]", "medium": "[MED]", "low": "[LOW]"}.get(item.get("urgency", "low"), "")
     print(f"\n{urgency_flag} [{item['ticker']}] {item['headline']}")
     print(f"  Why it matters: {item['why_it_matters']}")
+    tag = sentiment_label(item.get("sentiment"))
+    if tag:
+        print(f"  Sentiment: {tag}")
 
 
 def main():
@@ -139,11 +162,25 @@ def main():
         if not significant:
             print("\nClaude reviewed the headlines and found nothing significant right now.")
         else:
-            # Sort so high urgency shows first
+            # Group items by ticker; keep watchlist order for the groups,
+            # and within each group show high urgency first.
             order = {"high": 0, "medium": 1, "low": 2}
-            significant.sort(key=lambda x: order.get(x.get("urgency", "low"), 2))
+            by_ticker = {}
             for item in significant:
-                notify(item)
+                by_ticker.setdefault(item.get("ticker", "?"), []).append(item)
+
+            watchlist_order = [t["symbol"] for t in tickers]
+            group_symbols = sorted(
+                by_ticker.keys(),
+                key=lambda s: watchlist_order.index(s) if s in watchlist_order else len(watchlist_order),
+            )
+
+            name_by_symbol = {t["symbol"]: t.get("name", t["symbol"]) for t in tickers}
+            for symbol in group_symbols:
+                items = sorted(by_ticker[symbol], key=lambda x: order.get(x.get("urgency", "low"), 2))
+                print(f"\n=== {symbol} ({name_by_symbol.get(symbol, symbol)}) — {len(items)} item(s) ===")
+                for item in items:
+                    notify(item)
 
     config["last_checked"] = datetime.now().isoformat(timespec="seconds")
     save_config(config)
